@@ -4,13 +4,14 @@ Módulos publicitarios reutilizables para Astro: `AdBanner`, `AdBannerGroup`, `A
 
 ## Instalar desde el repositorio privado
 
-El proyecto consumidor necesita acceso de lectura a `MrvnDrax/astro-ad-modules` mediante SSH. Recomendamos fijar un tag de versión para que cada despliegue use el mismo código:
+El proyecto consumidor necesita acceso de lectura a `MrvnDrax/astro-ad-modules` mediante SSH. `pnpm` puede resolver la URL Git por HTTPS incluso si se indica SSH; configura una vez la sustitución de Git en la máquina que instala el paquete. Después fija un tag de versión para que cada despliegue use el mismo código:
 
 ```sh
-pnpm add 'git+ssh://git@github.com/MrvnDrax/astro-ad-modules.git#v0.1.0'
+git config --global url."git@github.com:".insteadOf "https://github.com/"
+pnpm add '@emeza/astro-ad-modules@git+ssh://git@github.com/MrvnDrax/astro-ad-modules.git#v0.1.0'
 ```
 
-En CI, configura una clave de despliegue de solo lectura o una identidad de GitHub con acceso al repositorio. Conserva esa credencial fuera del código y del lockfile. El paquete requiere Astro 7 en el proyecto consumidor. La publicación en un registro privado puede añadirse más adelante sin cambiar la API de los componentes.
+En CI, configura una clave de despliegue de solo lectura o una identidad de GitHub con acceso al repositorio y aplica la misma sustitución SSH durante la instalación. Conserva la credencial fuera del código y del lockfile. El paquete requiere Astro 7 en el proyecto consumidor. La publicación en un registro privado puede añadirse más adelante sin cambiar la API de los componentes.
 
 ```astro
 ---
