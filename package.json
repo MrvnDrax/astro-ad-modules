@@ -1,0 +1,25 @@
+{
+  "name": "@emeza/astro-ad-modules",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Reusable, brand-neutral advertising modules for Astro sites",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/MrvnDrax/astro-ad-modules.git"
+  },
+  "scripts": {
+    "check": "pnpm --dir examples/basic check",
+    "build": "pnpm --dir examples/basic build"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./AdBanner.astro": "./src/components/AdBanner.astro",
+    "./AdBannerGroup.astro": "./src/components/AdBannerGroup.astro",
+    "./AdPopup.astro": "./src/components/AdPopup.astro",
+    "./AdRail.astro": "./src/components/AdRail.astro"
+  },
+  "files": ["src", "README.md"],
+  "peerDependencies": { "astro": "^7.0.0" },
+  "keywords": ["astro-component", "advertising", "banner"]
+}

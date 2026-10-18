@@ -1,0 +1,37 @@
+---
+import { AdBanner, AdBannerGroup, AdPopup, AdRail } from '@emeza/astro-ad-modules';
+import type { BannerConfig, PromotionConfig } from '@emeza/astro-ad-modules';
+
+const wide: BannerConfig = {
+  id: 'clinic-wide', format: 'horizontal', layout: 'split', title: 'Cuidamos tu salud',
+  accentTitle: 'Con claridad.', ctaLabel: 'Conocer servicios', href: '/servicios',
+  media: { src: '/sample.svg', alt: 'Arte de ejemplo', width: 800, height: 600 },
+  theme: { background: '#10243a', foreground: '#fff', accent: '#4bd8d0' },
+};
+const square: BannerConfig = {
+  id: 'clinic-square', format: 'square', layout: 'overlay', title: 'Atención cercana',
+  ctaLabel: 'Agendar', href: '/contacto', media: { src: '/sample.svg', alt: 'Arte de ejemplo' },
+};
+const artwork: BannerConfig = {
+  id: 'clinic-artwork', format: 'horizontal', layout: 'artwork', ctaLabel: 'Ver campaña',
+  href: '/campana', media: { src: '/sample.svg', alt: 'Arte completo de ejemplo' },
+};
+const floating: PromotionConfig = {
+  id: 'clinic-floating', ctaLabel: 'Abrir promoción', href: '/promocion',
+  media: { src: '/sample.svg', alt: 'Promoción de ejemplo' },
+};
+---
+<!doctype html>
+<html lang="es">
+<head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width" /><title>Consumidor de módulos</title></head>
+<body>
+  <main>
+    <h1>Consumidor de prueba</h1>
+    <AdBanner banner={wide} />
+    <AdBannerGroup banners={[square, artwork]} columns={2} label="Campañas de prueba" />
+    <AdPopup promotion={floating} preview />
+    <AdRail promotion={{ ...floating, id: 'clinic-rail' }} side="right" mobileMode="dock" preview />
+  </main>
+</body>
+</html>
+<style is:global>body{margin:0;background:#e8f1f4;color:#10243a;font-family:system-ui,sans-serif}main{max-width:1200px;margin:auto;padding:24px}main>.ad-banner{margin:24px 0}</style>

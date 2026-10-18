@@ -1,0 +1,448 @@
+---
+import type { BannerConfig } from '../types';
+import { assertBannerConfig } from '../validation';
+
+interface Props {
+  banner: BannerConfig;
+  class?: string;
+}
+
+const { banner, class: className = '' } = Astro.props;
+assertBannerConfig(banner);
+const layout = banner.layout ?? 'split';
+const theme = {
+  background: banner.theme?.background ?? '#111512',
+  foreground: banner.theme?.foreground ?? '#f5f5ef',
+  accent: banner.theme?.accent ?? '#b8dc45',
+  surface: banner.theme?.surface ?? '#1a211b',
+};
+const target = banner.target ?? '_self';
+const rel = target === '_blank' ? 'noreferrer' : undefined;
+const style = [
+  `--banner-bg:${theme.background}`,
+  `--banner-fg:${theme.foreground}`,
+  `--banner-accent:${theme.accent}`,
+  `--banner-surface:${theme.surface}`,
+  `--banner-fit:${banner.media.fit ?? 'cover'}`,
+  `--banner-position:${banner.media.position ?? 'center'}`,
+].join(';');
+---
+
+<article
+  class:list={['ad-banner', `ad-banner--${banner.format}`, `ad-banner--${layout}`, className]}
+  data-ad-banner
+  data-ad-id={banner.id}
+  data-ad-format={banner.format}
+  data-dismiss-storage={banner.dismissStorage ?? 'session'}
+  style={style}
+>
+  <picture class:list={['ad-banner__media', { 'ad-banner__media--flipped': banner.media.flipX }]} aria-hidden={layout === 'artwork' ? 'false' : 'true'}>
+    {banner.media.mobileAvifSrc && (
+      <source media="(max-width: 520px)" srcset={banner.media.mobileAvifSrc} type="image/avif" />
+    )}
+    {banner.media.mobileSrc && (
+      <source media="(max-width: 520px)" srcset={banner.media.mobileSrc} />
+    )}
+    {banner.media.avifSrc && <source srcset={banner.media.avifSrc} type="image/avif" />}
+    <img src={banner.media.src} alt={layout === 'artwork' ? banner.media.alt : ''} loading="lazy" decoding="async" width={banner.media.width} height={banner.media.height} />
+  </picture>
+
+  {layout === 'artwork' ? (
+    <a
+      class="ad-banner__artwork-link"
+      href={banner.href}
+      target={target}
+      rel={rel}
+      data-ad-click
+      aria-label={banner.ctaLabel}
+    >
+      <span class="sr-only">{banner.ctaLabel}</span>
+    </a>
+  ) : (
+    <div class="ad-banner__content">
+      <div class="ad-banner__copy">
+        <div class="ad-banner__meta">
+          {banner.eyebrow && <span class="ad-banner__eyebrow">{banner.eyebrow}</span>}
+          {banner.badge && <span class="ad-banner__badge">{banner.badge}</span>}
+        </div>
+        {(banner.title || banner.accentTitle) && (
+          <h3 class="ad-banner__title">
+            {banner.title && <span>{banner.title}</span>}
+            {banner.accentTitle && <em>{banner.accentTitle}</em>}
+          </h3>
+        )}
+        {banner.description && <p class="ad-banner__description">{banner.description}</p>}
+      </div>
+
+      <div class="ad-banner__action">
+        <a class="ad-banner__cta" href={banner.href} target={target} rel={rel} data-ad-click>
+          <span>{banner.ctaLabel}</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M5 12h14M13 6l6 6-6 6"></path>
+          </svg>
+        </a>
+        {banner.footnote && <small>{banner.footnote}</small>}
+      </div>
+    </div>
+  )}
+
+  {banner.dismissible && (
+    <button class="ad-banner__dismiss" type="button" data-ad-dismiss aria-label="Cerrar promoción">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="m6 6 12 12M18 6 6 18"></path>
+      </svg>
+    </button>
+  )}
+</article>
+
+<script>
+  const storageFor = (kind: string) => (kind === 'local' ? window.localStorage : window.sessionStorage);
+
+  function initializeBanners() {
+  document.querySelectorAll<HTMLElement>('[data-ad-banner]').forEach((root) => {
+    if (root.dataset.bannerReady === 'true') return;
+    root.dataset.bannerReady = 'true';
+
+    const id = root.dataset.adId;
+    const storageKind = root.dataset.dismissStorage ?? 'session';
+    const dismissalKey = `ad-banner:dismissed:${id}`;
+
+    try {
+      if (storageFor(storageKind).getItem(dismissalKey) === 'true') root.hidden = true;
+    } catch {
+      // Storage can be disabled. The banner remains usable without persistence.
+    }
+
+    root.querySelector<HTMLElement>('[data-ad-dismiss]')?.addEventListener('click', () => {
+      root.hidden = true;
+      try {
+        storageFor(storageKind).setItem(dismissalKey, 'true');
+      } catch {
+        // Dismissal still works for the current page.
+      }
+      root.dispatchEvent(new CustomEvent('adbanner:dismiss', { bubbles: true, detail: { id } }));
+    });
+
+    root.querySelectorAll<HTMLAnchorElement>('[data-ad-click]').forEach((link) => {
+      link.addEventListener('click', () => {
+        root.dispatchEvent(
+          new CustomEvent('adbanner:click', {
+            bubbles: true,
+            detail: { id, format: root.dataset.adFormat, href: link.href },
+          }),
+        );
+      });
+    });
+  });
+  }
+
+  initializeBanners();
+  document.addEventListener('astro:page-load', initializeBanners);
+</script>
+
+<style>
+  .ad-banner {
+    --banner-bg: #111512;
+    --banner-fg: #f5f5ef;
+    --banner-accent: #b8dc45;
+    --banner-surface: #1a211b;
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    color: var(--banner-fg);
+    background: var(--banner-bg);
+    border-radius: clamp(1.4rem, 2.5vw, 2.25rem);
+    box-shadow: 0 1.1rem 3.5rem rgb(0 0 0 / 0.12);
+  }
+
+  .ad-banner[hidden] { display: none; }
+  .ad-banner, .ad-banner * { box-sizing: border-box; }
+  .ad-banner a { text-decoration: none; }
+  .ad-banner .ad-banner__title em { font-family: inherit; font-style: italic; }
+
+  .ad-banner__media,
+  .ad-banner__media img {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .ad-banner__media img {
+    object-fit: var(--banner-fit);
+    object-position: var(--banner-position);
+  }
+
+  .ad-banner__media--flipped img { transform: scaleX(-1); }
+
+  .ad-banner__content {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 2rem;
+    min-width: 0;
+    padding: clamp(1.5rem, 4vw, 3.75rem);
+  }
+
+  .ad-banner__copy { max-width: 45rem; }
+
+  .ad-banner__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.65rem;
+    min-height: 1.7rem;
+    margin-bottom: 1rem;
+  }
+
+  .ad-banner__eyebrow,
+  .ad-banner__badge {
+    font-family: var(--ad-font-display, 'Barlow Condensed', Impact, sans-serif);
+    font-size: 0.76rem;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .ad-banner__eyebrow { color: var(--banner-accent); }
+
+  .ad-banner__badge {
+    padding: 0.45rem 0.65rem;
+    color: var(--banner-bg);
+    background: var(--banner-accent);
+    border-radius: 999px;
+  }
+
+  .ad-banner__title {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    font-family: var(--ad-font-display, 'Barlow Condensed', Impact, sans-serif);
+    font-size: clamp(2.5rem, 5.4vw, 5.9rem);
+    font-weight: 900;
+    line-height: 0.82;
+    letter-spacing: -0.055em;
+    text-transform: uppercase;
+  }
+
+  .ad-banner__title em {
+    color: var(--banner-accent);
+    font-weight: 800;
+  }
+
+  .ad-banner__description {
+    max-width: 34rem;
+    margin: 1.2rem 0 0;
+    color: color-mix(in srgb, var(--banner-fg), transparent 27%);
+    font-family: var(--ad-font-body, inherit);
+    font-size: clamp(0.98rem, 1.5vw, 1.18rem);
+    line-height: 1.55;
+  }
+
+  .ad-banner__action {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .ad-banner__action small {
+    max-width: 18rem;
+    color: color-mix(in srgb, var(--banner-fg), transparent 38%);
+    font-size: 0.75rem;
+    letter-spacing: 0.03em;
+  }
+
+  .ad-banner__cta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    min-height: 3.25rem;
+    padding: 0.8rem 0.85rem 0.8rem 1.3rem;
+    color: var(--banner-bg);
+    background: var(--banner-accent);
+    border-radius: 999px;
+    font-family: var(--ad-font-display, 'Barlow Condensed', Impact, sans-serif);
+    font-size: 0.88rem;
+    font-weight: 900;
+    letter-spacing: 0.1em;
+    text-decoration: none;
+    text-transform: uppercase;
+    transition: transform 180ms ease, filter 180ms ease;
+  }
+
+  .ad-banner__cta svg {
+    display: block;
+    flex: 0 0 auto;
+    width: 2rem;
+    height: 2rem;
+    padding: 0.42rem;
+    background: color-mix(in srgb, var(--banner-bg), transparent 88%);
+    border-radius: 50%;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
+  }
+
+  .ad-banner__cta:hover,
+  .ad-banner__cta:focus-visible { transform: translateY(-3px); filter: brightness(1.08); }
+
+  .ad-banner__dismiss {
+    position: absolute;
+    z-index: 4;
+    top: 1rem;
+    right: 1rem;
+    display: grid;
+    width: 2.75rem;
+    height: 2.75rem;
+    padding: 0.75rem;
+    color: var(--banner-fg);
+    background: color-mix(in srgb, var(--banner-bg), transparent 20%);
+    border: 1px solid color-mix(in srgb, var(--banner-fg), transparent 74%);
+    border-radius: 50%;
+    cursor: pointer;
+    place-items: center;
+    backdrop-filter: blur(12px);
+  }
+
+  .ad-banner__dismiss svg {
+    display: block;
+    margin: auto;
+    width: 100%;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-width: 1.8;
+  }
+
+  .ad-banner--horizontal { height: clamp(20rem, 31vw, 28rem); }
+
+  .ad-banner--horizontal.ad-banner--split {
+    --banner-pad: clamp(1.5rem, 3vw, 2.4rem);
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(18rem, 0.95fr);
+  }
+
+  .ad-banner--horizontal.ad-banner--split .ad-banner__media { grid-column: 2; }
+  .ad-banner--horizontal.ad-banner--split .ad-banner__media { background: var(--banner-surface); }
+  .ad-banner--horizontal.ad-banner--split .ad-banner__content {
+    position: static;
+    grid-column: 1;
+    grid-row: 1;
+    gap: 1rem;
+    min-height: 0;
+    height: 100%;
+    padding: 0;
+  }
+
+  .ad-banner--horizontal.ad-banner--split .ad-banner__copy {
+    position: absolute;
+    z-index: 2;
+    top: var(--banner-pad);
+    left: var(--banner-pad);
+    width: calc(52.5% - var(--banner-pad) - var(--banner-pad));
+  }
+  .ad-banner--horizontal.ad-banner--split .ad-banner__meta { margin-bottom: 0.65rem; }
+  .ad-banner--horizontal.ad-banner--split .ad-banner__title { font-size: clamp(2.5rem, 4.4vw, 4.8rem); }
+  .ad-banner--horizontal.ad-banner--split .ad-banner__description { margin-top: 0.75rem; line-height: 1.4; }
+  .ad-banner--horizontal.ad-banner--split .ad-banner__action {
+    position: absolute;
+    z-index: 3;
+    right: calc(47.5% + var(--banner-pad));
+    bottom: var(--banner-pad);
+    left: var(--banner-pad);
+  }
+
+  .ad-banner--overlay .ad-banner__media,
+  .ad-banner--square .ad-banner__media {
+    position: absolute;
+    inset: 0;
+    z-index: -2;
+  }
+
+  .ad-banner--overlay::after,
+  .ad-banner--square:not(.ad-banner--artwork)::after {
+    position: absolute;
+    z-index: -1;
+    inset: 0;
+    content: '';
+    background: linear-gradient(90deg, color-mix(in srgb, var(--banner-bg), transparent 2%) 0 34%, color-mix(in srgb, var(--banner-bg), transparent 30%) 60%, transparent 100%);
+  }
+
+  .ad-banner--square {
+    aspect-ratio: 1;
+    min-height: 0;
+  }
+
+  .ad-banner--square .ad-banner__content { height: 100%; }
+
+  .ad-banner--square .ad-banner__title {
+    max-width: 9ch;
+    font-size: clamp(2.45rem, 4.6vw, 4.7rem);
+  }
+
+  .ad-banner--square:not(.ad-banner--artwork)::after {
+    background: linear-gradient(0deg, color-mix(in srgb, var(--banner-bg), transparent 0%) 0%, color-mix(in srgb, var(--banner-bg), transparent 25%) 45%, transparent 82%);
+  }
+
+  .ad-banner--square .ad-banner__copy { margin-top: auto; }
+  .ad-banner--square .ad-banner__action { margin-top: 0.5rem; }
+
+  .ad-banner--artwork { min-height: 0; background: var(--banner-surface); }
+  .ad-banner--horizontal.ad-banner--artwork { height: auto; aspect-ratio: 3 / 1; }
+  .ad-banner--artwork .ad-banner__media { position: absolute; inset: 0; }
+  .ad-banner__artwork-link { position: absolute; z-index: 2; inset: 0; border-radius: inherit; }
+  .ad-banner__artwork-link:focus-visible { outline: 4px solid var(--banner-accent); outline-offset: -5px; }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  @media (max-width: 760px) {
+    .ad-banner--horizontal.ad-banner--split { display: block; }
+    .ad-banner--horizontal.ad-banner--split .ad-banner__media { position: absolute; inset: 0; }
+    .ad-banner--horizontal.ad-banner--split::after {
+      position: absolute;
+      z-index: 1;
+      inset: 0;
+      content: '';
+      background: linear-gradient(0deg, color-mix(in srgb, var(--banner-bg), transparent 0%) 0 42%, color-mix(in srgb, var(--banner-bg), transparent 38%) 72%, transparent 100%);
+    }
+    .ad-banner--horizontal.ad-banner--split .ad-banner__content {
+      position: relative;
+      min-height: inherit;
+      justify-content: flex-end;
+      padding: 1.25rem;
+    }
+    .ad-banner--horizontal.ad-banner--split .ad-banner__copy { position: static; width: auto; }
+    .ad-banner--horizontal.ad-banner--split .ad-banner__action { position: static; }
+    .ad-banner__description { max-width: 30rem; }
+  }
+
+  @media (max-width: 520px) {
+    .ad-banner { border-radius: 1.4rem; }
+    .ad-banner--horizontal { height: 31rem; }
+    .ad-banner__content { gap: 1.35rem; padding: 1.25rem; }
+    .ad-banner__title { font-size: clamp(2.7rem, 15vw, 4rem); }
+    .ad-banner__action { align-items: flex-start; flex-direction: column; }
+    .ad-banner__cta { width: 100%; justify-content: space-between; }
+    .ad-banner--square { aspect-ratio: 0.84; }
+    .ad-banner--horizontal.ad-banner--artwork { height: auto; aspect-ratio: 3 / 1; border-radius: 1rem; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ad-banner__cta { transition: none; }
+  }
+</style>

@@ -1,0 +1,61 @@
+---
+import AdBanner from './AdBanner.astro';
+import type { BannerConfig } from '../types';
+import { assertUniqueAdIds } from '../validation';
+
+interface Props {
+  banners: BannerConfig[];
+  label?: string;
+  background?: string;
+  columns?: 1 | 2;
+  compact?: boolean;
+  tight?: boolean;
+}
+
+const {
+  banners,
+  label = 'Contenido promocional',
+  background = 'transparent',
+  columns = banners.length > 1 ? 2 : 1,
+  compact = false,
+  tight = false,
+} = Astro.props;
+assertUniqueAdIds(banners);
+---
+
+<aside
+  class:list={['ad-banner-group', { 'ad-banner-group--compact': compact, 'ad-banner-group--tight': tight }]}
+  aria-label={label}
+  data-ad-zone
+  style={`--ad-zone-bg:${background};--ad-zone-columns:${columns}`}
+>
+  <div class="ad-banner-group__inner">
+    {banners.map((banner) => <AdBanner banner={banner} />)}
+  </div>
+</aside>
+
+<style>
+  .ad-banner-group, .ad-banner-group * { box-sizing: border-box; }
+  .ad-banner-group {
+    padding: clamp(5.5rem, 9vw, 9rem) clamp(1rem, 4vw, 3rem);
+    background: var(--ad-zone-bg);
+  }
+
+  .ad-banner-group--compact { padding-block: clamp(4.5rem, 7vw, 7rem); }
+  .ad-banner-group--tight { padding-block: clamp(1.5rem, 3vw, 2.5rem); }
+
+  .ad-banner-group__inner {
+    display: grid;
+    grid-template-columns: repeat(var(--ad-zone-columns), minmax(0, 1fr));
+    gap: clamp(1rem, 2vw, 1.5rem);
+    width: min(80rem, 100%);
+    margin-inline: auto;
+  }
+
+  @media (max-width: 760px) {
+    .ad-banner-group,
+    .ad-banner-group--compact { padding-block: clamp(3.5rem, 14vw, 5rem); }
+    .ad-banner-group--tight { padding-block: 1.5rem; }
+    .ad-banner-group__inner { grid-template-columns: 1fr; }
+  }
+</style>

@@ -1,0 +1,91 @@
+---
+import type { PromotionConfig } from '../types';
+import { assertPromotionConfig } from '../validation';
+
+interface Props {
+  promotion: PromotionConfig;
+  label?: string;
+  delayMs?: number;
+  frequency?: 'always' | 'session' | 'local';
+  preview?: boolean;
+}
+
+const { promotion, label = 'Promoción', delayMs = 850, frequency = 'always', preview = false } = Astro.props;
+assertPromotionConfig(promotion);
+const target = promotion.target ?? '_self';
+---
+
+<dialog
+  class="ad-popup"
+  data-ad-popup
+  data-ad-id={promotion.id}
+  data-delay={Math.max(0, delayMs)}
+  data-frequency={frequency}
+  data-preview={preview}
+  aria-label={label}
+  open={preview || undefined}
+>
+  <button class="ad-popup__close" type="button" data-ad-popup-close aria-label="Cerrar promoción">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
+  </button>
+  <a class="ad-popup__link" href={promotion.href} target={target} rel={target === '_blank' ? 'noopener noreferrer' : undefined} aria-label={promotion.ctaLabel} data-ad-popup-click>
+    <picture>
+      {promotion.media.mobileAvifSrc && <source media="(max-width: 680px)" srcset={promotion.media.mobileAvifSrc} type="image/avif" />}
+      {promotion.media.mobileSrc && <source media="(max-width: 680px)" srcset={promotion.media.mobileSrc} />}
+      {promotion.media.avifSrc && <source srcset={promotion.media.avifSrc} type="image/avif" />}
+      <img src={promotion.media.src} alt={promotion.media.alt} width={promotion.media.width} height={promotion.media.height} decoding="async" />
+    </picture>
+  </a>
+</dialog>
+
+<script>
+  function initializePopups() {
+    document.querySelectorAll<HTMLDialogElement>('[data-ad-popup]:not([data-preview="true"])').forEach((root) => {
+      if (root.dataset.adReady === 'true') return;
+      root.dataset.adReady = 'true';
+      const id = root.dataset.adId ?? '';
+      const frequency = root.dataset.frequency ?? 'always';
+      const key = `ad-module:popup:${id}`;
+      const storage = () => frequency === 'local' ? window.localStorage : window.sessionStorage;
+      let seen = false;
+      if (frequency !== 'always') {
+        try { seen = storage().getItem(key) === 'seen'; } catch { /* Storage may be unavailable. */ }
+      }
+      const close = () => { if (root.open) root.close(); };
+      root.querySelector('[data-ad-popup-close]')?.addEventListener('click', close);
+      root.addEventListener('click', (event) => { if (event.target === root) close(); });
+      root.querySelector<HTMLAnchorElement>('[data-ad-popup-click]')?.addEventListener('click', (event) => {
+        root.dispatchEvent(new CustomEvent('admodule:click', { bubbles: true, detail: { id, placement: 'popup', href: event.currentTarget instanceof HTMLAnchorElement ? event.currentTarget.href : '' } }));
+        close();
+      });
+      root.addEventListener('close', () => root.dispatchEvent(new CustomEvent('admodule:dismiss', { bubbles: true, detail: { id, placement: 'popup' } })));
+      if (seen) return;
+      const delay = Number(root.dataset.delay ?? 850);
+      window.setTimeout(() => {
+        if (!root.isConnected || root.open || document.querySelector('dialog[open]')) return;
+        root.showModal();
+        if (frequency !== 'always') {
+          try { storage().setItem(key, 'seen'); } catch { /* Keep the popup functional. */ }
+        }
+        root.dispatchEvent(new CustomEvent('admodule:open', { bubbles: true, detail: { id, placement: 'popup' } }));
+      }, Number.isFinite(delay) ? Math.max(0, delay) : 850);
+    });
+  }
+  initializePopups();
+  document.addEventListener('astro:page-load', initializePopups);
+</script>
+
+<style>
+  .ad-popup, .ad-popup * { box-sizing: border-box; }
+  .ad-popup { width: min(calc(100% - 2rem), 38.75rem); max-height: calc(100svh - 2rem); padding: 0; overflow: hidden; border: 0; border-radius: 1.25rem; background: #111; color: #fff; box-shadow: 0 1.5rem 5rem rgb(0 0 0 / .55); }
+  .ad-popup::backdrop { background: rgb(0 0 0 / .72); backdrop-filter: blur(7px); }
+  .ad-popup__link, .ad-popup picture, .ad-popup img { display: block; width: 100%; }
+  .ad-popup__link { line-height: 0; }
+  .ad-popup img { height: auto; max-height: calc(100svh - 2rem); object-fit: contain; }
+  .ad-popup__close { position: absolute; z-index: 2; top: .75rem; right: .75rem; display: grid; place-items: center; width: 2.75rem; height: 2.75rem; padding: .75rem; border: 1px solid rgb(255 255 255 / .6); border-radius: 50%; background: rgb(0 0 0 / .78); color: #fff; cursor: pointer; }
+  .ad-popup__close svg { display: block; width: 100%; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; }
+  .ad-popup[data-preview="true"] { position: relative; margin: 0; max-height: none; }
+  .ad-popup[data-preview="true"] img { max-height: none; }
+  .ad-popup__link:focus-visible, .ad-popup__close:focus-visible { outline: 3px solid #fff; outline-offset: -4px; }
+  @media (max-width: 680px) { .ad-popup { width: min(calc(100% - 1.5rem), 29.375rem); } }
+</style>

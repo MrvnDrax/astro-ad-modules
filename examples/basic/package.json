@@ -1,0 +1,8 @@
+{
+  "name": "astro-ad-modules-consumer",
+  "private": true,
+  "type": "module",
+  "scripts": { "check": "astro check", "build": "astro build" },
+  "dependencies": { "@emeza/astro-ad-modules": "file:../..", "astro": "^7.3.5" },
+  "devDependencies": { "@astrojs/check": "^0.9.5", "typescript": "^5.9.3" }
+}
